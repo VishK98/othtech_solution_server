@@ -24,13 +24,14 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product details is required"],
     },
     image: {
-      type: String,
-      required: [true, "Image is required"],
+      type: Buffer,         // Store image as a Buffer
+      required: true,       // Image is required
+    },
+    imageType: {
+      type: String,         // Store MIME type as a String (e.g., 'image/jpeg')
+      required: true,
     },
     slug: {
-      type: String,
-    },
-    cloudinary_id: {
       type: String,
     },
   },
@@ -38,10 +39,6 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.pre("save", async function (next) {
-  // if(!this.isModified("slug")){
-  //     return next()
-  // }
-
   const slug = createSlug(this.slug);
   this.slug = slug;
   next();

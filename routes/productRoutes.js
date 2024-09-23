@@ -1,49 +1,39 @@
 const express = require("express");
 const router = express.Router();
-const upload = require("../utils/imageUpload");
-const { protect } = require("../middleware/authMiddleware");
-const cloudinary = require("../config/cloudinary.config");
-const Product = require("../models/Product");
+const multer = require("multer"); // Ensure multer is required before use
 
-// Route for uploading an image
-router.post("/create", upload.single("image"), protect, async (req, res) => {
-  try {
-    const schema = joi.object({
-      product: joi.string().required().max(30).min(2),
-      category: joi.string().required(),
-      price: joi.string().required(),
-      quantity: joi.number().required(),
-      description: joi.string().required().max(250).min(15),
-      // image: joi.string().required()
-    });
-    const { error } = schema.validate(req.body);
-    if (error) return res.status(400).json(error.details[0].message);
+// Import necessary controllers and middleware
+const {
+  addProduct,
+  getProducts,
+  getProduct,
+  updateProduct,
+  deleteProduct,
+  getProductImage
+} = require("../controllers/productController");
 
-    const { product, category, price, quantity, description } = req.body;
+const { protect } = require("../middleware/authMiddleware"); // Ensure you have this middleware defined
 
-    const productExists = await Product.findOne({ product: req.body.product });
-    if (productExists) return res.status(400).json("Product already exists");
+// Set up multer memory storage for image uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "stock",
-    });
+// Route to add a new product with image upload
+router.post("/create", upload.single("image"), protect, addProduct);
 
-    let new_product = new Product({
-      product,
-      category,
-      price,
-      quantity,
-      description,
-      slug: product,
-      image: result.secure_url,
-      cloudinary_id: result.public_url,
-    });
+// Route to get all products
+router.get("/", getProducts);
 
-    await new_product.save();
-    return res.status(201).json("Product has been saved.");
-  } catch (error) {
-    return res.status(500).json(error.message);
-  }
-});
+// Route to get a specific product by ID
+router.get("/:id", getProduct);
+
+// Route to get the image of a product
+router.get("/:id/image", getProductImage);
+
+// Route to update a product (optionally with an image upload)
+router.put("/update/:id", upload.single("image"), protect, updateProduct);
+
+// Route to delete a product by ID
+router.delete("/:id", protect, deleteProduct);
 
 module.exports = router;

@@ -37,7 +37,8 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/users", require("./routes/userRoutes")); // User-related routes
 app.use("/api/category", require("./routes/categoryRoutes")); // Category-related routes
-app.use("/api/product", require("./routes/productRoutes")); // Product-related routes
+app.use("/api/product", require("./routes/productRoutes")); // Product-related routes\
+
 
 // Error handling middleware
 app.use(errorHandler);
