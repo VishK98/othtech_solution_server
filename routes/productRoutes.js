@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer"); // Ensure multer is required before use
+const multer = require("multer"); 
 
 // Import necessary controllers and middleware
 const {
@@ -12,7 +12,7 @@ const {
   getProductImage
 } = require("../controllers/productController");
 
-const { protect } = require("../middleware/authMiddleware"); // Ensure you have this middleware defined
+const { protect } = require("../middleware/authMiddleware"); 
 
 // Set up multer memory storage for image uploads
 const storage = multer.memoryStorage();
