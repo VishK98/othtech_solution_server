@@ -85,11 +85,26 @@ const getProductImage = async (req, res) => {
 const getProducts = async (req, res) => {
   try {
     const products = await Product.find();
-    res.status(200).json(products);
+
+    // Create a response with image URLs
+    const productsWithImageLinks = products.map((product) => {
+      return {
+        id: product._id,
+        product: product.product,
+        category: product.category,
+        price: product.price,
+        quantity: product.quantity,
+        description: product.description,
+        imageUrl: `${req.protocol}://${req.get('host')}/api/product/${product._id}/image`,  // Image link
+      };
+    });
+
+    res.status(200).json(productsWithImageLinks);
   } catch (error) {
     res.status(500).json(error.message);
   }
 };
+
 
 const getProduct = async (req, res) => {
   try {

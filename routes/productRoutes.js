@@ -22,7 +22,7 @@ const upload = multer({ storage: storage });
 router.post("/create", upload.single("image"), protect, addProduct);
 
 // Route to get all products
-router.get("/", getProducts);
+router.get("/all-products", getProducts);
 
 // Route to get a specific product by ID
 router.get("/:id", getProduct);
