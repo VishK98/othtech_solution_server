@@ -5,13 +5,26 @@ const path = require("path");
 // Add product
 const addProduct = async (req, res) => {
   try {
-    const { product, category, price, quantity, description } = req.body;
+    const {
+      productName,
+      productType,
+      category,
+      brand,
+      description,
+      productUnit,
+      productPrice,
+      discount,
+      stockAlert,
+      quantity
+    } = req.body;
 
+    // Check if image is provided
     if (!req.file) {
-      return res.status(400).json({ status: false, message: "Image is required." });
+      return res.status(400).json({ status: false, message: "Product image is required." });
     }
 
-    const productExists = await Product.findOne({ product });
+    // Check if the product with the same name already exists
+    const productExists = await Product.findOne({ productName });
     if (productExists) {
       return res.status(400).json({ status: false, message: "Product already exists." });
     }
@@ -19,35 +32,51 @@ const addProduct = async (req, res) => {
     const imageBuffer = req.file.buffer;
     const imageMimeType = req.file.mimetype;
 
+    // Validate that the uploaded file is an image
     if (!imageMimeType.startsWith('image/')) {
       return res.status(400).json({ status: false, message: "Invalid image type." });
     }
 
+    // Create a new product object
     const newProduct = new Product({
-      product,
+      productName,
+      productType,
       category,
-      price,
-      quantity,
+      brand,
       description,
+      productUnit,
+      productPrice: parseFloat(productPrice.replace(/,/g, '')),  // Ensure that the productPrice is stored as a number
+      discount: discount || 0,  // Set discount to 0 if not provided
+      stockAlert,
+      quantity,
       image: imageBuffer,
       imageType: imageMimeType,
-      slug: product,
+      slug: productName,
     });
 
+    // Save the product to the database
     await newProduct.save();
 
+    // Construct image URL for the saved product
     const imageUrl = `${req.protocol}://${req.get('host')}/api/product/${newProduct._id}/image`;
 
+    // Respond with the product data
     res.status(200).json({
       status: true,
       message: "Product has been saved.",
       data: {
         id: newProduct._id,
-        product: newProduct.product,
+        productName: newProduct.productName,
+        productType: newProduct.productType,
         category: newProduct.category,
-        price: newProduct.price,
-        quantity: newProduct.quantity,
+        brand: newProduct.brand,
         description: newProduct.description,
+        productUnit: newProduct.productUnit,
+        productPrice: newProduct.productPrice,
+        discount: newProduct.discount,
+        stockAlert: newProduct.stockAlert,
+        quantity: newProduct.quantity,
+        productCode: newProduct.productCode,  // Include the auto-generated product code
         imageUrl,
       },
     });
@@ -55,6 +84,8 @@ const addProduct = async (req, res) => {
     res.status(500).json({ status: false, error: error.message });
   }
 };
+
+
 
 // Get product image
 const getProductImage = async (req, res) => {

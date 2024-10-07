@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer"); 
 
-// Import necessary controllers and middleware
 const {
   addProduct,
   getProducts,

@@ -64,6 +64,15 @@ const register = async (req, res) => {
         { expiresIn: "1 day" }
       );
 
+      // Save token to the tokens table with user ID
+      const newToken = new Token({
+        userId: user._id,
+        token: token,
+      });
+
+      await newToken.save();
+      console.log("Token saved in tokens table:", newToken);
+
       // Set the token in a cookie
       res.cookie("token", token, {
         path: "/",
@@ -84,6 +93,7 @@ const register = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
 
 
 const login = async (req, res) => {
