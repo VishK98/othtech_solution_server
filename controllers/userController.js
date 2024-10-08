@@ -21,16 +21,21 @@ const register = async (req, res) => {
     // Log the incoming request body
     console.log("Incoming request:", req.body);
 
+    // Define the schema for validation
     const schema = joi.object({
       name: joi.string().min(2).max(25).required(),
       email: joi.string().required().email(),
       password: joi.string().min(6).required(),
     });
 
+    // Validate the request body
     const { error } = schema.validate(req.body);
     if (error) {
       console.log("Validation error:", error.details[0].message);
-      return res.status(400).json(error.details[0].message);
+      return res.status(400).json({
+        status: false,
+        message: error.details[0].message,
+      });
     }
 
     const { email, name, password } = req.body;
@@ -39,14 +44,18 @@ const register = async (req, res) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       console.log("User already exists:", email);
-      return res.status(400).json("User with this email already exists.");
+      return res.status(400).json({
+        status: false,
+        message: "User with this email already exists.",
+      });
     }
 
-    // Create a new user
+    // Create a new user with default isLoggedIn: false
     const newUser = new User({
       name,
       email,
       password,
+      isLoggedIn: false, // This will ensure the value is always set to false on registration
     });
 
     // Save the new user to the database
@@ -54,6 +63,7 @@ const register = async (req, res) => {
     console.log("New user created:", user);
 
     if (user) {
+      // Generate a JWT token
       const token = jwt.sign(
         {
           _id: user._id,
@@ -64,12 +74,11 @@ const register = async (req, res) => {
         { expiresIn: "1 day" }
       );
 
-      // Save token to the tokens table with user ID
+      // Save the token to the tokens table with the user's ID
       const newToken = new Token({
         userId: user._id,
         token: token,
       });
-
       await newToken.save();
       console.log("Token saved in tokens table:", newToken);
 
@@ -83,41 +92,63 @@ const register = async (req, res) => {
       });
 
       console.log("Token generated:", token);
-      return res.status(201).json({ token });
+
+      // Return full response with status true and user data
+      return res.status(201).json({
+        status: true,
+        message: "User registered successfully.",
+        data: {
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            isLoggedIn: user.isLoggedIn,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          },
+          token: token,
+        },
+      });
     } else {
       console.log("Failed to create user.");
-      return res.status(400).json("Failed to create user.");
+      return res.status(400).json({
+        status: false,
+        message: "Failed to create user.",
+      });
     }
   } catch (error) {
     console.error("Internal server error:", error.message);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
 
-
 const login = async (req, res) => {
   try {
+    // Validate incoming request
     const schema = joi.object({
       email: joi.string().email().required(),
       password: joi.string().required(),
     });
 
     const { error } = schema.validate(req.body);
-    if (error) return res.status(400).json(error.details[0].message);
+    if (error) return res.status(400).json({ status: false, message: error.details[0].message });
 
     const { email, password } = req.body;
 
+    // Find the user by email
     const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ status: false, message: "Wrong email/password combination" });
 
-    if (!user) return res.status(400).json("wrong email password combination");
-
+    // Verify the password
     const verifyPassword = await bcrypt.compare(password, user.password);
-
-    if (!verifyPassword)
-      return res.status(400).json("wrong email password combination");
+    if (!verifyPassword) return res.status(400).json({ status: false, message: "Wrong email/password combination" });
 
     if (user) {
+      // Generate a JWT token
       const token = jwt.sign(
         {
           _id: user._id,
@@ -127,34 +158,71 @@ const login = async (req, res) => {
         { expiresIn: "1 day" }
       );
 
-      // const token = generateToken(user._id)
-
+      // Set token as cookie
       res.cookie("token", token, {
         path: "/",
         httpOnly: true,
-        expires: new Date(Date.now() + 1000 * 86400),
+        expires: new Date(Date.now() + 1000 * 86400), // 1 day
         sameSite: "none",
-        scure: true,
+        secure: true,
       });
-      return res.status(200).json(token);
+
+      // Update `isLoggedIn` to true in the database
+      user.isLoggedIn = true;
+      await user.save(); // Save the updated user object with `isLoggedIn` set to true
+
+      return res.status(200).json({
+        status: true,
+        message: "Login successful",
+        data: {
+          token: token,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            isLoggedIn: user.isLoggedIn,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          },
+        },
+      });
     } else {
-      return res.status(400).json("wrong email password combination");
+      return res.status(400).json({ status: false, message: "Wrong email/password combination" });
     }
   } catch (error) {
-    return res.status(500).json(error.message);
+    return res.status(500).json({ status: false, message: error.message });
   }
 };
 
+
 const logout = async (req, res) => {
-  res.cookie("token", "", {
-    path: "/",
-    httpOnly: true,
-    expires: new Date(0),
-    sameSite: "none",
-    scure: true,
-  });
-  return res.status(200).json("You have been logged out.");
+  try {
+    // Extract user ID from the request body or parameters
+    const { userId } = req.body; // Assuming you're sending the userId in the body
+
+    // Check if userId is provided
+    if (!userId) {
+      return res.status(400).json({ status: false, message: "User ID is required." });
+    }
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found." });
+    }
+
+    // Update `isLoggedIn` to false
+    user.isLoggedIn = false;
+    await user.save(); // Save the updated user object
+
+    // Return a success response
+    return res.status(200).json({ status: true, message: "You have been logged out." });
+  } catch (error) {
+    // Return an error response
+    return res.status(500).json({ status: false, message: error.message });
+  }
 };
+
 
 const user = async (req, res) => {
   try {
@@ -180,20 +248,23 @@ const user = async (req, res) => {
 
 const loggedIn = async (req, res) => {
   try {
-    const token = req.cookies.token;
+    const { userId } = req.body;
 
-    if (!token) {
-      return res.json(false);
+    if (!userId) {
+      return res.status(400).json({ status: false, message: "User ID is required." });
     }
 
-    const verified = jwt.verify(token, process.env.SECRET_KEY);
-    if (verified) {
-      return res.json(true);
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found." });
     }
+
+    return res.json({ loggedIn: user.isLoggedIn });
   } catch (error) {
-    return res.status(500).json(error.message);
+    return res.status(500).json({ status: false, message: error.message });
   }
 };
+
 
 const updateProfile = async (req, res) => {
   try {

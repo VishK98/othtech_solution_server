@@ -85,8 +85,6 @@ const addProduct = async (req, res) => {
   }
 };
 
-
-
 // Get product image
 const getProductImage = async (req, res) => {
   try {

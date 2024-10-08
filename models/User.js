@@ -1,11 +1,12 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const slugify = require("slugify"); // You can use this library for generating slugs
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "user name is required"],
+      required: [true, "User name is required"],
     },
     email: {
       type: String,
@@ -20,39 +21,48 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: [true, "Password is required"],
-      minLength: [6, "Password should atleast be 6 characters long"],
-      // maxLength:[23,"Password should not be more than 23 characters long"],
+      minLength: [6, "Password should be at least 6 characters long"],
     },
     photo: {
       type: String,
-      required: [true, "Photo is required"],
       default: "https://robohash.org/default.png",
     },
     phone: {
       type: String,
-      default: "+256",
+      default: "+91",
     },
     bio: {
       type: String,
-      maxLength: [250, "Bio shouldnot be more than 250 characters long."],
+      maxLength: [250, "Bio should not be more than 250 characters long."],
       default: "bio",
     },
+    isLoggedIn: {
+      type: Boolean,
+      default: false, // By default, user is not logged in when registered
+    },
     slug: {
-      typeof: String,
+      type: String,
     },
   },
   { timestamps: true }
 );
 
+// Pre-save hook to hash the password if modified
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
     return next();
   }
 
   const salt = await bcrypt.genSalt(10);
-  const hashPassword = await bcrypt.hash(this.password, salt);
-  this.password = hashPassword;
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
 
+// Pre-save hook to generate slug from name if not present
+userSchema.pre("save", function (next) {
+  if (!this.slug) {
+    this.slug = slugify(this.name, { lower: true, strict: true });
+  }
   next();
 });
 
